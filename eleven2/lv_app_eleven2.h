@@ -9,7 +9,7 @@ extern "C" {
 /*********************
 *      INCLUDES
 *********************/
-#include "../../lv_app.h"
+#include "lvgl/lvgl.h"
 /*********************
 *      DEFINES
 *********************/
@@ -34,7 +34,7 @@ extern "C" {
 * 颜色命名 https://www.matools.com/color
 * 调色板   https://www.sojson.com/web/panel.html
 ---------------*/
-#define ELEVEN2_COLOR_Peru              0xCD853F 
+#define ELEVEN2_COLOR_Peru              0xCD853F
 #define ELEVEN2_COLOR_Coral             0xFF7F50
 #define ELEVEN2_COLOR_LightGrey         0xD5DBDB
 #define ELEVEN2_COLOR_White             0xFFFFFF
@@ -43,7 +43,7 @@ extern "C" {
 #define ELEVEN2_COLOR_Tan               0xD2B48C
 #define ELEVEN2_COLOR_Bisque            0xFFE4C4
 /*--------------
-* Theme Config 
+* Theme Config
 ---------------*/
 //得分板主题
 #define ELEVEN2_THEME_SCORE_BG          ELEVEN2_COLOR_MAKE_HEX(187, 173, 160)

@@ -2,15 +2,18 @@
   * @file lv_app_eleven2.c
   */
 
+#include <stdint.h>
 #if 1
 
 /*********************
 *      INCLUDES
 *********************/
 #include "lv_app_eleven2.h"
-#include "stdio.h"
-#include "math.h"
-#include "string.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <string.h>
+#include <math.h>
 /*********************
 *  DEFINES / TYPEDEF
 *********************/
@@ -44,262 +47,6 @@ static uint32_t  eleven2mgmt_data_score = 0;
 /*********************
 *  Eleven2 animation
 *********************/
-
-
-static void anim_x_cb(void* var, int32_t v)
-{
-    lv_obj_set_x(var, v);
-}
-
-static void anim_y_cb(void* var, int32_t v)
-{
-    lv_obj_set_y(var, v);
-}
-
-static void anim_size_cb(void* var, int32_t v)
-{
-    lv_obj_set_size(var, v, v);
-}
-
-/*********************
-*  Block 
-*********************/
-
-struct Box_layout
-{
-    uint16_t  posx[4][4];
-    uint16_t  posy[4][4];
-    lv_obj_t* box[4][4];
-    lv_obj_t* curt_score;
-    lv_obj_t* best_score;
-};
-
-struct box_base {
-    uint16_t value;
-    uint8_t dir : 3;/*8W4A2S6D*/
-    uint8_t dis : 4;
-    uint8_t new : 1;
-};
-
-struct Box {
-    struct box_base box[4][4];
-    struct box_base box_backup[4][4];
-    uint32_t curt_score;
-    uint32_t best_score;
-};
-
-void box_anim_move_callback(struct Box_layout* Box,int i,int j)
-{
-    static lv_anim_t a;
-
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, Box->box[i][j]);
-
-    lv_anim_set_values(&a, lv_obj_get_x(Box->box[i][j]), 0);
-    lv_anim_set_time(&a, 500);
-    lv_anim_set_exec_cb(&a, anim_x_cb);
-    lv_anim_set_path_cb(&a, lv_anim_path_overshoot);
-    lv_anim_start(&a);
-
-    lv_anim_set_values(&a, lv_obj_get_y(Box->box[i][j]), 0);
-    lv_anim_set_time(&a, 500);
-    lv_anim_set_exec_cb(&a, anim_y_cb);
-    lv_anim_start(&a);
-}
-
-void box_anim_create_callback(struct Box_layout* Box, int i, int j)
-{
-    static lv_anim_t a;
-
-    lv_anim_init(&a);
-    lv_anim_set_var(&a, Box->box[i][j]);
-
-    lv_anim_set_values(&a, lv_obj_get_x(Box->box[i][j]), 0);
-    lv_anim_set_time(&a, 500);
-    lv_anim_set_exec_cb(&a, anim_size_cb);
-    lv_anim_set_path_cb(&a, lv_anim_path_overshoot);
-    lv_anim_start(&a);
-}
-
-void box_init(struct Box* Box)
-{
-    Box->curt_score = 0;
-    for (uint8_t i = 0; i < ROW; i++) {
-        for (uint8_t j = 0; j < COLUMN; j++) {
-            Box->box_backup[i][j].value = 0;
-            Box->box[i][j].value = 0;
-        }
-    }
-    /* init best_score , may be from eeprom */
-
-    /* load posx and posy */
-
-}
-
-void box_backup(struct Box* Box)
-{
-    memcpy(Box->box_backup, Box->box, sizeof(struct box_base) * 16);
-    //for (uint8_t i = 0; i < ROW; i++) {
-    //    for (uint8_t j = 0; j < COLUMN; j++) {
-    //        Box->box_backup[i][j].value = Box->box[i][j].value;
-    //    }
-    //}
-}
-
-int box_is_same(struct Box *Box)
-{
-    for (uint8_t i = 0; i < ROW; i++) {
-        for (uint8_t j = 0; j < COLUMN; j++) {
-            if (Box->box[i][j].value != Box->box_backup[i][j].value) {
-                return 0;
-            }
-        }
-    }
-    return 1;
-}
-
-void box_create(struct Box* Box)
-{
-    uint16_t cnt = 0;
-    uint16_t pos[16] = { 0 };
-    /*把空的位置都找出来放到pos中*/
-    for (uint8_t i = 0; i < ROW; i++) {
-        for (uint8_t j = 0; j < COLUMN; j++) {
-
-            Box->box[i][j].new = 0;/*mark to old*/
-
-            if (Box->box[i][j].value == 0) {
-                pos[cnt++] = i * 4 + j;
-            }
-        }
-    }
-    /*在随机空位置里面填入随机(only 2 or 4)数值*/
-    if (cnt > 0) {
-        //获取空白位置
-        uint16_t p1 = lv_rand(0, cnt);
-        //空白位置赋值
-        Box->box[(pos[p1] / 4)]
-                [(pos[p1] % 4)].value = lv_rand(0, 9) < 7 ? 1 : 2;
-
-        Box->box[(pos[p1] / 4)][(pos[p1] % 4)].new = 1;/*mark to new*/
-    }
-}
-
-void box_move(struct Box* Box, uint8_t dir)
-{
-    box_backup(Box);
-
-    switch (dir)
-    {
-    case 0/*W*/:
-        for (uint8_t i = 0; i < ROW - 1; i++) {
-            for (uint8_t j = 0; j < COLUMN; j++) {
-                if ((Box->box[i][j].value == Box->box[i + 1][j].value) && (Box->box[i][j].value != 0)) {
-                    Box->box[i][j].value += 1;
-                    Box->box[i][j].dir  = 8;
-                    Box->box[i][j].dis += 1;
-                    Box->box[i + 1][j].value = 0;
-                    Box->curt_score += 1 << Box->box[i][j].value;
-                }
-            }
-        }
-        for (uint8_t j = 0; j < COLUMN; j++) {
-            int k = 0;
-            for (uint8_t i = 0; i < ROW; i++) {
-                if (Box->box[i][j].value != 0) {
-                    Box->box[k++][j].value = Box->box[i][j].value;
-                    Box->box[i][j].dis += j - k;
-                }
-            }
-            for (uint8_t i = k; i < ROW; i++) {
-                Box->box[i][j].value = 0;
-            }
-        }
-        break;
-    case 1/*A*/:
-        for (uint8_t j = 0; j < COLUMN - 1; j++) {
-            for (uint8_t i = 0; i < ROW; i++) {
-                if ((Box->box[i][j].value == Box->box[i][j + 1].value) && (Box->box[i][j].value != 0)) {
-                    Box->box[i][j].value += 1;
-                    Box->box[i][j].dir = 4;
-                    Box->box[i][j].dis += 1;
-                    Box->curt_score += 1 << Box->box[i][j].value;
-                    Box->box[i][j + 1].value = 0;
-                }
-            }
-        }
-        for (uint8_t i = 0; i < ROW; i++) {
-            int k = 0;
-            for (uint8_t j = 0; j < COLUMN; j++) {
-                if (Box->box[i][j].value != 0) {
-                    Box->box[i][k++].value = Box->box[i][j].value;
-                }
-            }
-            for (uint8_t j = k; j < COLUMN; j++) {
-                Box->box[i][j].value = 0;
-            }
-        }
-        break;
-    case 2/*S*/:
-        for (uint8_t j = 0; j < COLUMN; j++) {
-            for (int8_t i = ROW - 1; i >= 0; i--) {
-                if ((Box->box[i][j].value == Box->box[i - 1][j].value) && (Box->box[i][j].value != 0)) {
-                    Box->box[i][j].value += 1;
-                    Box->box[i][j].dir = 2;
-                    Box->box[i][j].dis += 1;
-                    Box->curt_score += 1 << Box->box[i][j].value;
-                    Box->box[i - 1][j].value = 0;
-                }
-            }
-        }
-        for (uint8_t j = 0; j < COLUMN; j++)
-        {
-            int k = ROW - 1;
-            for (int8_t i = ROW - 1; i >= 0; i--) {
-                if (Box->box[i][j].value != 0) {
-                    Box->box[k--][j].value = Box->box[i][j].value;
-                }
-            }
-            for (int8_t i = k; i >= 0; i--) {
-                Box->box[i][j].value = 0;
-            }
-        }
-        break;
-    case 3/*D*/:
-        for (uint8_t i = 0; i < ROW; i++) {
-            for (uint8_t j = COLUMN - 1; j >= 1; j--) {
-                if (Box->box[i][j].value == Box->box[i][j - 1].value && Box->box[i][j].value != 0) {
-                    Box->box[i][j].value += 1;
-                    Box->box[i][j].dir = 6;
-                    Box->box[i][j].dis += 1;
-                    Box->curt_score += 1 << Box->box[i][j].value;
-                    Box->box[i][j - 1].value = 0;
-                }
-            }
-        }
-        for (uint8_t i = 0; i < ROW; i++) {
-            int k = ROW - 1;
-            for (int8_t j = COLUMN - 1; j >= 0; j--) {
-                if (Box->box[i][j].value != 0) {
-                    Box->box[i][k--].value = Box->box[i][j].value;
-                }
-            }
-            for (int8_t j = k; j >= 0; j--) {
-                Box->box[i][j].value = 0;
-            }
-        }
-        break;
-    default/*None*/:
-        break;
-    }
-}
-
-
-
-void box_update(struct Box* Box, struct Box_layout *layout)
-{
-
-}
 
 /****************************************************************************/
 typedef struct {
@@ -336,7 +83,7 @@ void backup(Block B_Backup[ROW][COLUMN], Block B_Src[ROW][COLUMN])
 
 /**
  * @brief 清空数值,和颜色
- * @param B 
+ * @param B
 */
 void init(Block B[ROW][COLUMN])
 {
@@ -371,8 +118,8 @@ void create(Block B[ROW][COLUMN])
 }
 /**
  * @brief 移动方块
- * @param B 
- * @param d 
+ * @param B
+ * @param d
 */
 void move(Block B[ROW][COLUMN],unsigned char d)
 {
@@ -475,7 +222,7 @@ void move(Block B[ROW][COLUMN],unsigned char d)
 }
 /**
  * @brief 刷新方块颜色，刷新色块文本颜色
- * @param B 
+ * @param B
 */
 void update(Block B[ROW][COLUMN])
 {
@@ -495,7 +242,7 @@ void update(Block B[ROW][COLUMN])
                 lv_color_hex(B[i][j].color),
                 0
             );
-            
+
         }
     }
 }
@@ -512,7 +259,7 @@ static void eleven2_ctrl_buttons_create(lv_obj_t* parent);
 static void eleven2_restart_event_callback(lv_event_t* e);
 static void eleven2_ctrl_button_event_callback(lv_event_t* e);
 
-/********************** 
+/**********************
 *   GLOBAL FUNCTIONS
 **********************/
 
@@ -542,11 +289,11 @@ void lv_app_eleven2(void) {
         static lv_coord_t row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
         lv_obj_set_grid_dsc_array(main_frame, col_dsc, row_dsc);
 
-        
+
 
         /*菜单面板*/
         lv_obj_t* main_panel_menu = lv_obj_create(main_frame);
-        
+
         {
             lv_obj_clear_flag(main_panel_menu, LV_OBJ_FLAG_SCROLLABLE);
             lv_obj_set_width(main_panel_menu, SCREEN_HOR);
@@ -571,7 +318,7 @@ void lv_app_eleven2(void) {
 
             eleven2_ctrl_buttons_create(main_panel_ctrl);
         }
-        
+
         eleven2_obj_set_grid_cell(main_panel_menu, 0, 1, 1, 1, LV_GRID_ALIGN_STRETCH, LV_GRID_ALIGN_STRETCH);    /*菜单布局*/
         eleven2_obj_set_grid_cell(main_panel_game, 0, 0, 1, 2, LV_GRID_ALIGN_STRETCH, LV_GRID_ALIGN_STRETCH);    /*游戏框布局*/
         eleven2_obj_set_grid_cell(main_panel_ctrl, 1, 1, 1, 1, LV_GRID_ALIGN_STRETCH, LV_GRID_ALIGN_STRETCH);    /*控制框布局*/
@@ -581,7 +328,7 @@ void lv_app_eleven2(void) {
 }
 /**
  * @brief Menu
- * @param parent 
+ * @param parent
  */
 static void eleven2_menu_create(lv_obj_t* parent) {
 
@@ -647,19 +394,19 @@ static void eleven2_menu_create(lv_obj_t* parent) {
 
 /**
  * @brief 主窗口
- * @param parent 
+ * @param parent
 */
 static void eleven2_mainwindow_create(lv_obj_t* parent) {
 
-    
+
     /*mainwindow背景样式*/
     lv_obj_set_style_bg_color(parent, lv_color_hex(ELEVEN2_THEME_BLOCK_BG), 0);/*背景颜色*/
     lv_obj_set_style_pad_gap(parent, 7, 0);/*方块间距*/
     lv_obj_set_layout(parent, LV_LAYOUT_GRID);/*方格布局*/
 
     /*为16个方块生成布局*/
-    static lv_coord_t col_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST }; 
-    static lv_coord_t row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST }; 
+    static lv_coord_t col_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
+    static lv_coord_t row_dsc[] = { LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_FR(1), LV_GRID_TEMPLATE_LAST };
     lv_obj_set_grid_dsc_array(parent, col_dsc, row_dsc);
 
     /*设置生成16个方块*/
@@ -696,7 +443,7 @@ static void eleven2_mainwindow_create(lv_obj_t* parent) {
 
 /**
  * @brief 方向控制按钮
- * @param parent 
+ * @param parent
 */
 static void eleven2_ctrl_buttons_create(lv_obj_t* parent) {
 
@@ -753,13 +500,13 @@ static void eleven2_ctrl_buttons_create(lv_obj_t* parent) {
         }
         lv_obj_center(_txt);
         //按钮事件回调
-        lv_obj_add_event_cb(ctrl_button[i],eleven2_ctrl_button_event_callback,LV_EVENT_ALL,i);
+        lv_obj_add_event_cb(ctrl_button[i],eleven2_ctrl_button_event_callback,LV_EVENT_ALL, (void *)i);
     }
 }
 
 /**
  * @brief 新游戏按钮
- * @param e 
+ * @param e
 */
 static void eleven2_restart_event_callback(lv_event_t* e) {
 
@@ -777,13 +524,13 @@ static void eleven2_restart_event_callback(lv_event_t* e) {
 }
 
 /**
- * @brief 
- * @param e 
+ * @brief
+ * @param e
 */
 static void eleven2_ctrl_button_event_callback(lv_event_t* e) {
 
     lv_event_code_t code = lv_event_get_code(e);
-    uint8_t _para = lv_event_get_user_data(e);
+    uint8_t _para = (uint8_t)lv_event_get_user_data(e);
 
     if (code == LV_EVENT_CLICKED) {
         /* 0:W 1:A 2:S 3:D */
@@ -817,7 +564,7 @@ static void eleven2_ctrl_button_event_callback(lv_event_t* e) {
         update(Blocks);
         lv_label_set_text_fmt(eleven2mgmt_curtScore, "%d", eleven2mgmt_data_score);
     }
-    
+
 }
 
 
